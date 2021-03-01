@@ -45,10 +45,36 @@ void utest() {
     for (int i = 0; i < switch_times; ++i) {
         swapcontext(&main_uctx, &co_uctx);
     }
+
+    free(spu);
+}
+
+struct Foo {
+    Foo(int x) : x_(x) {};
+    int x_ = 0;
+    void Print() {
+        std::cout << x_ << std::endl;
+    }
+};
+Foo* f = new Foo(10);
+
+fcontext_t main_ctx, co_ctx;
+
+void t(intptr_t) {
+    auto ff = f;
+    ff->Print();
+    jump_fcontext(&co_ctx, main_ctx, 0, false);
+}
+
+void transfer_test() {
+    void* sp = malloc(sp_size);
+    co_ctx = make_fcontext(sp, sp_size, t);
+    jump_fcontext(&main_ctx, co_ctx, 0, false);
 }
 
 int main(int argc, char* argv[]) {
 
+    // ucontext is 10X slower compared with fcontext
     auto t1 = std::chrono::system_clock::now();
     ftest();
     auto t2 = std::chrono::system_clock::now();
@@ -60,7 +86,8 @@ int main(int argc, char* argv[]) {
     auto d2 = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2);
     std::cout << "ucontext: " << double(d2.count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den << " second" << std::endl;
 
-    // ucontext is 10X slower compared with fcontext
+    // param transfer
+    transfer_test();
 
     return 0;
 }
