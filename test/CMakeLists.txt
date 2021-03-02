@@ -13,3 +13,8 @@ target_link_libraries(fcontext_test)
 
 add_executable(coroutine_test coroutine_test.cpp ../src/coroutine.cpp ../thirdparty/libcontext/libcontext.cpp)
 target_link_libraries(coroutine_test pthread)
+
+find_package(Threads REQUIRED)
+
+add_executable(singleton_test singleton_test.cpp)
+#target_link_libraries(singleton_test PRIVATE Threads::Threads)
