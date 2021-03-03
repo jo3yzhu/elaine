@@ -1,3 +1,5 @@
+#pragma once
+
 #include <memory>
 #include <functional>
 #include <cassert>
@@ -18,7 +20,9 @@ public:
     typedef std::shared_ptr<Coroutine> Ptr;
 public:
     Coroutine(std::function<void()> fn);
-    Coroutine() = default;
+    Coroutine() = delete;
+    Coroutine(const Coroutine&) = delete;
+    Coroutine(Coroutine &&) = delete;
     ~Coroutine();
     void Yield();
     void Resume();

@@ -8,7 +8,7 @@
 
 using namespace elaine;
 
-size_t co_nums = 100000;
+size_t co_nums = 1000;
 size_t co_loop_nums = 100;
 size_t thread_nums = 4;
 

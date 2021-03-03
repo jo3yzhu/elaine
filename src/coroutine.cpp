@@ -30,10 +30,13 @@ Coroutine::~Coroutine() {
     if (sp_) {
         free(sp_);
     }
+
+    // TODO: use log library
+    // std::cout << "coroutine: " << g_cid_ << "destructed";
 }
 
 // @description: switch control stream of current thread to a io corouine
-// @note: must be called in main coroutine
+// @note: must be called in main coroutine of current thread
 
 void Coroutine::Resume() {
     assert(status_ != Status::kRunning);
@@ -43,7 +46,7 @@ void Coroutine::Resume() {
 }
 
 // @description: switch control stream of current thread to thread local main coroutine
-// @note: must be called in io coroutine
+// @note: must be called in io coroutine of current thread
 
 void Coroutine::Yield() {
     assert(status_ != Status::kBlocked);

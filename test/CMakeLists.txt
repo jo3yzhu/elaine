@@ -5,16 +5,20 @@ include_directories(.)
 include_directories(../thirdparty)
 include_directories(../src)
 
+aux_source_directory(../thirdparty/libcontext libcontext_src)
+aux_source_directory(../src src)
+
+
 add_executable(liburing_test liburing_test.cpp)
 target_link_libraries(liburing_test uring)
 
-add_executable(fcontext_test fcontext_test.cpp ../thirdparty/libcontext/libcontext.cpp)
+add_executable(fcontext_test fcontext_test.cpp ${libcontext_src})
 target_link_libraries(fcontext_test)
 
-add_executable(coroutine_test coroutine_test.cpp ../src/coroutine.cpp ../thirdparty/libcontext/libcontext.cpp)
-target_link_libraries(coroutine_test pthread)
-
-find_package(Threads REQUIRED)
+add_executable(coroutine_test coroutine_test.cpp ${src} ${libcontext_src})
+target_link_libraries(coroutine_test uring pthread)
 
 add_executable(singleton_test singleton_test.cpp)
-#target_link_libraries(singleton_test PRIVATE Threads::Threads)
+
+add_executable(multiplexer_test multiplexer_test.cpp ${src} ${libcontext_src})
+target_link_libraries(multiplexer_test uring)

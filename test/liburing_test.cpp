@@ -2,9 +2,14 @@
 #include <stdlib.h>
 #include <sys/utsname.h>
 #include <sys/timerfd.h>
+#include <sys/eventfd.h>
 #include <liburing.h>
 #include <liburing/io_uring.h>
 #include <chrono>
+#include <cassert>
+#include <thread>
+#include <iostream>
+#include <unistd.h>
 
 static const char* op_strs[] = {
     "IORING_OP_NOP",
@@ -54,7 +59,7 @@ void env_support_check() {
     struct io_uring_probe* probe = io_uring_get_probe();
     printf("Report of your kernel's list of supported io_uring operations:\n");
     for (char i = 0; i < IORING_OP_LAST; i++) {
-        printf("%s: ", op_strs[i]);
+        printf("%s: ", op_strs[(uint32_t)i]);
         if (io_uring_opcode_supported(probe, i))
             printf("yes.\n");
         else
@@ -106,10 +111,10 @@ void timerfd_support_check() {
         struct io_uring_cqe* cqe;
         io_uring_wait_cqe(&ring, &cqe);
         int seq = *(int*)io_uring_cqe_get_data(cqe);
-        
+
         // cqe must be marked as seen if application has processed it
         // if not, the result of io_uring_wait_cqe would always be the head node of CQ and seems like never removed
-        io_uring_cqe_seen(&ring, cqe); 
+        io_uring_cqe_seen(&ring, cqe);
 
         auto after = std::chrono::system_clock::now().time_since_epoch();
         auto after_ms = std::chrono::duration_cast<std::chrono::microseconds>(after);
@@ -122,8 +127,38 @@ void timerfd_support_check() {
     }
 }
 
-int main(int argc, char *argv[]) {
+void eventfd_support_check() {
+    eventfd_t efd = eventfd(0, 0);
+    struct io_uring ring;
+    io_uring_queue_init(1, &ring, 0);
+
+    std::thread t([efd]() {
+        uint64_t buffer = 1;
+        for (int i = 0; i < 10; i++) {
+            std::cout << "thread:" << i << std::endl;
+            write(efd, &buffer, sizeof(buffer));
+            sleep(1);
+        }
+    });
+
+    for (int i = 0; i < 10; ++i) {
+        uint64_t buffer;
+        struct io_uring_sqe* sqe = io_uring_get_sqe(&ring);
+        io_uring_sqe_set_data(sqe, 0);
+        io_uring_prep_read(sqe, efd, &buffer, sizeof(buffer), 0);
+        io_uring_submit(&ring);
+        struct io_uring_cqe* cqe;
+        io_uring_wait_cqe(&ring, &cqe);
+        std::cout << i << std::endl;
+        io_uring_cqe_seen(&ring, cqe);
+    }
+
+    t.join();
+}
+
+int main(int argc, char* argv[]) {
     env_support_check();
     timerfd_support_check();
+    eventfd_support_check();
     return 0;
 }
