@@ -6,6 +6,9 @@
 namespace elaine
 {
 
+// a simple version of singleton wrapper, for there can only be a instance per class type
+// if there are many instance getting called with different params within one class, only first call can be in effect
+
 template <typename T>
 class Singleton {
 public:
