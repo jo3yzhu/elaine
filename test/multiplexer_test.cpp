@@ -1,7 +1,8 @@
+#include "util/singleton.h"
 #include "multiplexer.h"
 #include "context.h"
 #include "coroutine.h"
-#include "singleton.h"
+#include "worker.h"
 
 #include<sys/socket.h>
 #include<arpa/inet.h>
@@ -10,7 +11,7 @@
 
 using namespace elaine;
 
-Multiplexer* g_multiplexer = Singleton<Multiplexer>::GetInstance(1);
+Multiplexer* g_multiplexer = Singleton<Multiplexer>::GetInstance();
 
 int CreateServSock(int port) {
     int serv_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -27,6 +28,7 @@ int CreateServSock(int port) {
     return serv_sock;
 }
 
+
 int main(int argc, char* argv[]) {
 
     auto co = std::make_shared<Coroutine>([]() {
@@ -35,11 +37,14 @@ int main(int argc, char* argv[]) {
 
     int serv_fd = CreateServSock(8888);
 
-    auto ctx = std::make_shared<AcceptContext>(g_multiplexer, co, serv_fd);
+    struct sockaddr addr;
+    socklen_t socklen = sizeof(addr);
+    auto ctx = std::make_shared<AcceptContext>(co, serv_fd, &addr, &socklen);
     g_multiplexer->RegisterContext(ctx);
 
     auto result_ctx = g_multiplexer->Poll();
+    std::cout << result_ctx->GetResult() << std::endl;
     result_ctx->GetCorouine()->Resume();
-    
+
     return 0;
 }

@@ -12,11 +12,13 @@
 namespace elaine
 {
 
-// multiplexer class is a global singleton and thread-safe
+// multiplexer class is singleton and thread-safe
 
 class Multiplexer {
 public:
-    Multiplexer(unsigned int depth);
+    static constexpr size_t DefaultRingDepth = 32;
+public:
+    Multiplexer();
     Multiplexer(const Multiplexer&) = delete;
     Multiplexer(Multiplexer&&) = delete;
     ~Multiplexer();
@@ -25,19 +27,16 @@ public:
 
     template <typename T>
     void RegisterContext(T ctx_) {
-        ctx_->RegisterSelf();
+        ctx_->RegisterTo(this);
     }
 
-    Context::Ptr Poll();
-    void Wakeup();
+    Context* Poll();
+    bool IsPolling();
 
 private:
     struct io_uring ring_;
     unsigned int queue_depth_;
     std::atomic<bool> is_polling_;
-
-    eventfd_t event_fd_;
-    EventContext::Ptr event_ctx_;
 };
 
 }

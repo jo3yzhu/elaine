@@ -1,80 +1,119 @@
 #pragma once
 
-#include <memory>
+#include "coroutine.h"
 
 #include <liburing.h>
 #include <liburing/io_uring.h>
 
-#include "coroutine.h"
-
-
 namespace elaine
 {
 
+
+// Design:
+// 1. context class handles the life-time context of a coroutine and is only allowed to ve allocated on coroutine stack
+// 2. a context object should be transfered between user and kernel by io_uring user data to specify current context
+// 3. there cannot be multithreads own one context, so it's thread-safe
+
+// Note:
+// 1. io_uring_prep_recv/read/write just would not work with socket on my machine: Linux ubuntu 5.8.0-44-generic #50~20.04.1-Ubuntu SMP Thu Feb 11 07:01:18 UTC 2021 aarch64 aarch64 aarch64 GNU/Linux
+// 2. io_uring_prep_readv/writev can be used with both socket and file, so I plan implement asynchronous read/write/recv/send based on readv/writev
+
 class Multiplexer;
 
-// context class handles the life-time context of a coroutine
-// a context object should be transfered between user and kernel by io_uring to specify context of io_uring event just return
-// the smart pointer of context obejcts would be managed in a high performace key-value container for indexing by fd
-// there cannot be multithreads own one context, so it's thread-safe
-// TODO: support cancel
-
-class Context : public std::enable_shared_from_this<Context> {
+class Context {
     friend class Multiplexer;
 public:
-    typedef std::shared_ptr<Context> Ptr;
+
+    // supported i/o event
     enum class Event : uint32_t {
-        kNone = 0x00,
-        kAccept = 0x01,
-        kRead = 0x02,
-        kWrite = 0x04,
-        kEvent = 0x08,
+        kNone,
+        kAccept,
+        kReadv,
+        kWritev,
+        kRead,
+        kWrite,
     };
 
-    // some status can be set in context, but some can only be set in multipexer
+    // some status can be set in context, but some can only be set in worker
     enum class Status : uint32_t {
-        kInitial = 0x00,
-        kPolling = 0x01,
-        kSuccess = 0x02, // if return value of specified system call is valid, status is set as success
-        kFail = 0x04,    // if not, status is set as fail
+        kInitial,
+        kPolling,
+        kSuccess,
+        kFail,
     };
 
 public:
-    explicit Context(Multiplexer* multiplexer, Coroutine::Ptr co, int fd, Event listen_events);
-    virtual void RegisterSelf() = 0; // context must know how to register itself in multiplexer
-    virtual void CheckOut() = 0;     // called when multiplexer return, set result of system and context status
+    Context(Coroutine::Ptr co, int fd, Event listen_events);
 
+    // context must know how to register itself in multiplexer
+    virtual void RegisterTo(Multiplexer* multiplexer) = 0;
+
+    // avoid be allocated in heap
+    void* operator new(size_t) throw() = delete;
+    void* operator new[](size_t) = delete;
+    void operator delete(void*) = delete;
+
+    // getter
     Coroutine::Ptr GetCorouine();
+    int GetResult();
+    int GetFd();
     Event GetEvent();
     Status GetStatus();
 
 protected:
-    Multiplexer* multiplexer_ = nullptr; // always alive, no need for shared_ptr and avoiding circular reference
+    // when i/o finished, worker will just call Resume() of it
     Coroutine::Ptr co_ = nullptr;
+
+    // the file need to read or write etc
     int fd_;
-    int res_; // result of asynchronous system call, should be set by multiplexer
-    Event event_ = Event::kNone; // interested event
+
+    // result of asynchronous system call, should be set by multiplexer
+    ssize_t res_;
+
+    // interested event
+    Event event_ = Event::kNone;
+
+    // status of io_uring function call
     Status status_ = Status::kInitial;
 };
 
-class EventContext : public Context {
-public:
-    typedef std::shared_ptr<EventContext> Ptr;
-    explicit EventContext(Multiplexer* multiplexer, Coroutine::Ptr co, int fd);
-    void RegisterSelf() override;
-    void CheckOut() override;
-private:
-    uint64_t buffer_;
-};
 
 class AcceptContext : public Context {
 public:
-    typedef std::shared_ptr<AcceptContext> Ptr;
-    explicit AcceptContext(Multiplexer* multiplexer, Coroutine::Ptr co, int fd);
-    void RegisterSelf() override;
-    void CheckOut() override;
-private:
-    sockaddr peer_addr_; // TODO: use user-defined socket instance
+    AcceptContext(Coroutine::Ptr co, int sockfd, struct sockaddr* addr, socklen_t* addrlen);
+    void RegisterTo(Multiplexer* multiplexer) override;
+    sockaddr* addr_;
+    socklen_t* addrlen_;
+};
+
+class ReadvContext : public Context {
+public:
+    ReadvContext(Coroutine::Ptr co, int fd, struct iovec* iov, int iovcnt);
+    void RegisterTo(Multiplexer* multiplexer) override;
+    const struct iovec* iov_;
+    int iovcnt_;
+};
+
+class WritevContext : public Context {
+public:
+    WritevContext(Coroutine::Ptr co, int fd, const struct iovec* iov, int iovcnt);
+    void RegisterTo(Multiplexer* multiplexer) override;
+    const struct iovec* iov_;
+    int iovcnt_;
+};
+
+class ReadContext : public ReadvContext {
+public:
+    ReadContext(Coroutine::Ptr co, int fd, void* buf, size_t count);
+    void RegisterTo(Multiplexer* multiplexer) override;
+    struct iovec iov_;
+};
+
+class WriteContext : public WritevContext {
+public:
+    WriteContext(Coroutine::Ptr co, int fd, void* buf, size_t count);
+    void RegisterTo(Multiplexer* multiplexer) override;
+    struct iovec iov_;
 };
 
 

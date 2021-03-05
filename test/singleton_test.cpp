@@ -1,7 +1,7 @@
 #include <cassert>
 #include <iostream>
 
-#include "singleton.h"
+#include "util/singleton.h"
 
 using namespace elaine;
 

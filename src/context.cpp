@@ -1,15 +1,24 @@
+#include "util/singleton.h"
 #include "context.h"
 #include "multiplexer.h"
 
 namespace elaine
 {
 
-Context::Context(Multiplexer* multiplexer, Coroutine::Ptr co, int fd, Event event)
-    : multiplexer_(multiplexer), co_(co), fd_(fd), event_(event) {
+Context::Context(Coroutine::Ptr co, int fd, Event event)
+    : co_(co), fd_(fd), event_(event) {
 }
 
 Coroutine::Ptr Context::GetCorouine() {
     return co_;
+}
+
+int Context::GetResult() {
+    return res_;
+}
+
+int Context::GetFd() {
+    return fd_;
 }
 
 Context::Event Context::GetEvent() {
@@ -20,55 +29,72 @@ Context::Status Context::GetStatus() {
     return status_;
 }
 
-EventContext::EventContext(Multiplexer* multiplexer, Coroutine::Ptr co, int fd)
-    : Context(multiplexer, co, fd, Context::Event::kAccept) {
+
+AcceptContext::AcceptContext(Coroutine::Ptr co, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
+    : Context(co, sockfd, Context::Event::kAccept), addr_(addr), addrlen_(addrlen) {
 }
 
-void EventContext::RegisterSelf() {
-    auto ring = multiplexer_->GetRing();
+void AcceptContext::RegisterTo(Multiplexer* multiplexer) {
+    auto ring = Singleton<Multiplexer>::GetInstance()->GetRing();
     auto sqe = ::io_uring_get_sqe(ring);
     assert(sqe != nullptr);
 
-    ::io_uring_prep_read(sqe, fd_, &buffer_, sizeof(buffer_), 0);
+    ::io_uring_prep_accept(sqe, fd_, addr_, addrlen_, 0);
     ::io_uring_sqe_set_data(sqe, this);
-    ::io_uring_submit(ring);
+    auto submit_num = ::io_uring_submit(ring);
+    assert(submit_num == 1);
 
     status_ = Status::kPolling;
 }
 
-// @description: check if accept system call valid
-// @note: called by multiplexer after polling return
-
-void EventContext::CheckOut() {
-    assert(event_ == Event::kEvent);
-    assert(status_ == Status::kPolling);
-    status_ = Status::kSuccess;
+ReadvContext::ReadvContext(Coroutine::Ptr co, int fd, struct iovec* iov, int iovcnt)
+    : Context(co, fd, Context::Event::kReadv), iov_(iov), iovcnt_(iovcnt) {
 }
 
-AcceptContext::AcceptContext(Multiplexer* multiplexer, Coroutine::Ptr co, int fd)
-    : Context(multiplexer, co, fd, Context::Event::kAccept) {
-}
-
-void AcceptContext::RegisterSelf() {
-    auto ring = multiplexer_->GetRing();
+void ReadvContext::RegisterTo(Multiplexer* multiplexer) {
+    auto ring = Singleton<Multiplexer>::GetInstance()->GetRing();
     auto sqe = ::io_uring_get_sqe(ring);
     assert(sqe != nullptr);
 
-    socklen_t addrlen = static_cast<socklen_t>(sizeof(struct sockaddr));
-    ::io_uring_prep_accept(sqe, fd_, &peer_addr_, &addrlen, 0);
+    ::io_uring_prep_readv(sqe, fd_, iov_, iovcnt_, 0);
     ::io_uring_sqe_set_data(sqe, this);
-    ::io_uring_submit(ring);
+    auto submit_num = ::io_uring_submit(ring);
+    assert(submit_num == 1);
 
     status_ = Status::kPolling;
 }
 
-// @description: check if accept system call valid
-// @note: called by multiplexer after polling return
+WritevContext::WritevContext(Coroutine::Ptr co, int fd, const struct iovec* iov, int iovcnt)
+    : Context(co, fd, Context::Event::kWritev), iov_(iov), iovcnt_(iovcnt) {
+}
 
-void AcceptContext::CheckOut() {
-    assert(event_ == Event::kAccept);
-    assert(status_ == Status::kPolling);
-    status_ = res_ < 0 ? Status::kFail : Status::kSuccess;
+void WritevContext::RegisterTo(Multiplexer* multiplexer) {
+    auto ring = Singleton<Multiplexer>::GetInstance()->GetRing();
+    auto sqe = ::io_uring_get_sqe(ring);
+    assert(sqe != nullptr);
+
+    ::io_uring_prep_writev(sqe, fd_, iov_, iovcnt_, 0);
+    ::io_uring_sqe_set_data(sqe, this);
+    auto submit_num = ::io_uring_submit(ring);
+    assert(submit_num == 1);
+
+    status_ = Status::kPolling;
+}
+
+ReadContext::ReadContext(Coroutine::Ptr co, int fd, void* buf, size_t count)
+    : ReadvContext(co, fd, &iov_, 1), iov_{ buf, count } {
+}
+
+void ReadContext::RegisterTo(Multiplexer* multiplexer) {
+    ReadvContext::RegisterTo(multiplexer);
+}
+
+WriteContext::WriteContext(Coroutine::Ptr co, int fd, void* buf, size_t count)
+    : WritevContext(co, fd,  &iov_, 1), iov_{ buf, count } {
+}
+
+void WriteContext::RegisterTo(Multiplexer* multiplexer) {
+    WritevContext::RegisterTo(multiplexer);
 }
 
 }

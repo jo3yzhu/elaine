@@ -22,3 +22,9 @@ add_executable(singleton_test singleton_test.cpp)
 
 add_executable(multiplexer_test multiplexer_test.cpp ${src} ${libcontext_src})
 target_link_libraries(multiplexer_test uring)
+
+add_executable(defer_test defer_test.cpp ${src} ${libcontext_src})
+target_link_libraries(defer_test pthread uring)
+
+add_executable(worker_test worker_test.cpp ${src} ${libcontext_src})
+target_link_libraries(worker_test pthread uring)

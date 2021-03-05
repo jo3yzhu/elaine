@@ -6,7 +6,7 @@ namespace elaine
 {
 
 thread_local fcontext_t t_main_ctx;               // context for main coroutine
-thread_local Coroutine* t_active_co = nullptr;    // nullptr indicates that main coroutine is active
+thread_local Coroutine* t_current_co = nullptr;    // nullptr indicates that main coroutine is active
 thread_local uint64_t t_cid_generator = 0;        // for thread local coroutine id generating
 std::atomic<uint64_t> g_cid_generator = { 0 };    // global atomic for coroutine id generating
 
@@ -40,7 +40,7 @@ Coroutine::~Coroutine() {
 
 void Coroutine::Resume() {
     assert(status_ != Status::kRunning);
-    t_active_co = this;
+    t_current_co = this;
     status_ = Status::kRunning;
     jump_fcontext(&t_main_ctx, ctx_, 0, false);
 }
@@ -50,7 +50,7 @@ void Coroutine::Resume() {
 
 void Coroutine::Yield() {
     assert(status_ != Status::kBlocked);
-    t_active_co = nullptr;
+    t_current_co = nullptr;
     status_ = Status::kBlocked;
     jump_fcontext(&ctx_, t_main_ctx, 0, false);
 }
@@ -61,9 +61,9 @@ Coroutine::Status Coroutine::GetStatus() {
 
 // @description: get active coroutine in current thread
 
-Coroutine::Ptr Coroutine::GetActive() {
-    assert(t_active_co != nullptr);
-    return t_active_co->shared_from_this();
+Coroutine::Ptr Coroutine::GetCurrent() {
+    assert(t_current_co != nullptr);
+    return t_current_co->shared_from_this();
 }
 
 uint64_t Coroutine::GetGlobalCid() {
@@ -75,7 +75,7 @@ uint64_t Coroutine::GetThreadCid() {
 }
 
 void Coroutine::Run(intptr_t transfer) {
-    auto self = t_active_co;
+    auto self = t_current_co;
     self->fn_();
     self->fn_ = nullptr;
     self->status_ = Status::kTerminated;

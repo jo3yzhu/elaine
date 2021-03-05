@@ -18,7 +18,7 @@ void thread_func() {
     std::vector<Coroutine::Ptr> coroutines;
     for (size_t i = 0; i < co_nums; ++i) {
         coroutines.push_back(std::make_shared<Coroutine>([=]() {
-            auto self = Coroutine::GetActive();
+            auto self = Coroutine::GetCurrent();
             for (size_t j = 0; j < co_loop_nums; ++j) {
                 self->Yield();
             }

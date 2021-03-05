@@ -27,7 +27,7 @@ public:
     void Yield();
     void Resume();
     Status GetStatus();
-    static Coroutine::Ptr GetActive();
+    static Coroutine::Ptr GetCurrent();
     uint64_t GetGlobalCid();
     uint64_t GetThreadCid();
 private:
