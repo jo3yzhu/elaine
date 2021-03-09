@@ -1,5 +1,6 @@
 #include "thread.h"
 
+#include <iostream>
 #include <cassert>
 #include <sys/syscall.h>
 
@@ -7,7 +8,7 @@
 namespace elaine
 {
 
-thread_local pid_t t_thread_id = -1;
+thread_local pid_t t_thread_id = 0;
 
 Thread::Thread(std::function<void()> cb)
     : cb_(cb) {
@@ -35,8 +36,9 @@ void Thread::Join() {
 }
 
 pid_t Thread::GetCurrentTid() {
-    if (t_thread_id == -1) {
-        t_thread_id = ::gettid();
+    if (t_thread_id == 0) {
+        
+        t_thread_id = ::syscall(SYS_gettid);
     }
     return t_thread_id;
 }

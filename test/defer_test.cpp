@@ -20,7 +20,6 @@ int main(int argc, char* argv[]) {
             defer([&]() {
                 g_mutex.Unlock();
             });
-            std::cout << "thread:" << Thread::GetCurrentTid() << std::endl;
             for (int j = 0; j < 10000; ++j) {
                 ++g_counter;
             }

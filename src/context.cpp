@@ -29,13 +29,17 @@ Context::Status Context::GetStatus() {
     return status_;
 }
 
+pid_t Context::GetThreadId() {
+    return thread_id_;
+}
+
 
 AcceptContext::AcceptContext(Coroutine::Ptr co, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
     : Context(co, sockfd, Context::Event::kAccept), addr_(addr), addrlen_(addrlen) {
 }
 
 void AcceptContext::RegisterTo(Multiplexer* multiplexer) {
-    auto ring = Singleton<Multiplexer>::GetInstance()->GetRing();
+    auto ring = multiplexer->GetRing();
     auto sqe = ::io_uring_get_sqe(ring);
     assert(sqe != nullptr);
 
@@ -52,7 +56,7 @@ ReadvContext::ReadvContext(Coroutine::Ptr co, int fd, struct iovec* iov, int iov
 }
 
 void ReadvContext::RegisterTo(Multiplexer* multiplexer) {
-    auto ring = Singleton<Multiplexer>::GetInstance()->GetRing();
+    auto ring = multiplexer->GetRing();
     auto sqe = ::io_uring_get_sqe(ring);
     assert(sqe != nullptr);
 
@@ -69,7 +73,7 @@ WritevContext::WritevContext(Coroutine::Ptr co, int fd, const struct iovec* iov,
 }
 
 void WritevContext::RegisterTo(Multiplexer* multiplexer) {
-    auto ring = Singleton<Multiplexer>::GetInstance()->GetRing();
+    auto ring = multiplexer->GetRing();
     auto sqe = ::io_uring_get_sqe(ring);
     assert(sqe != nullptr);
 
@@ -83,6 +87,7 @@ void WritevContext::RegisterTo(Multiplexer* multiplexer) {
 
 ReadContext::ReadContext(Coroutine::Ptr co, int fd, void* buf, size_t count)
     : ReadvContext(co, fd, &iov_, 1), iov_{ buf, count } {
+    event_ = Event::kRead;
 }
 
 void ReadContext::RegisterTo(Multiplexer* multiplexer) {
@@ -90,7 +95,8 @@ void ReadContext::RegisterTo(Multiplexer* multiplexer) {
 }
 
 WriteContext::WriteContext(Coroutine::Ptr co, int fd, void* buf, size_t count)
-    : WritevContext(co, fd,  &iov_, 1), iov_{ buf, count } {
+    : WritevContext(co, fd, &iov_, 1), iov_{ buf, count } {
+    event_ = Event::kWrite;
 }
 
 void WriteContext::RegisterTo(Multiplexer* multiplexer) {

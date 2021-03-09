@@ -11,8 +11,6 @@
 
 using namespace elaine;
 
-Multiplexer* g_multiplexer = Singleton<Multiplexer>::GetInstance();
-
 int CreateServSock(int port) {
     int serv_sock = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -31,20 +29,20 @@ int CreateServSock(int port) {
 
 int main(int argc, char* argv[]) {
 
-    auto co = std::make_shared<Coroutine>([]() {
-        std::cout << 1 << std::endl;
-    });
+    // auto co = std::make_shared<Coroutine>([]() {
+    //     std::cout << 1 << std::endl;
+    // });
 
-    int serv_fd = CreateServSock(8888);
+    // int serv_fd = CreateServSock(8888);
 
-    struct sockaddr addr;
-    socklen_t socklen = sizeof(addr);
-    auto ctx = std::make_shared<AcceptContext>(co, serv_fd, &addr, &socklen);
-    g_multiplexer->RegisterContext(ctx);
+    // struct sockaddr addr;
+    // socklen_t socklen = sizeof(addr);
+    // auto ctx = std::make_shared<AcceptContext>(co, serv_fd, &addr, &socklen);
+    // g_multiplexer->RegisterContext(ctx);
 
-    auto result_ctx = g_multiplexer->Poll();
-    std::cout << result_ctx->GetResult() << std::endl;
-    result_ctx->GetCorouine()->Resume();
+    // auto result_ctx = g_multiplexer->Poll();
+    // std::cout << result_ctx->GetResult() << std::endl;
+    // result_ctx->GetCorouine()->Resume();
 
     return 0;
 }

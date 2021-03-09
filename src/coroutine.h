@@ -20,9 +20,10 @@ public:
     typedef std::shared_ptr<Coroutine> Ptr;
 public:
     Coroutine(std::function<void()> fn);
+    Coroutine(std::function<void()> fn, std::string name);
     Coroutine() = delete;
     Coroutine(const Coroutine&) = delete;
-    Coroutine(Coroutine &&) = delete;
+    Coroutine(Coroutine&&) = delete;
     ~Coroutine();
     void Yield();
     void Resume();
@@ -30,6 +31,7 @@ public:
     static Coroutine::Ptr GetCurrent();
     uint64_t GetGlobalCid();
     uint64_t GetThreadCid();
+    std::string GetName();
 private:
     static void Run(intptr_t transfer);
     std::function<void()> fn_;
@@ -39,6 +41,7 @@ private:
     Status status_ = Status::kRunnable;
     uint64_t g_cid_;
     uint64_t t_cid_;
+    std::string name_;
 };
 
 }

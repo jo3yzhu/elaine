@@ -28,3 +28,9 @@ target_link_libraries(defer_test pthread uring)
 
 add_executable(worker_test worker_test.cpp ${src} ${libcontext_src})
 target_link_libraries(worker_test pthread uring)
+
+add_executable(scheduler_test scheduler_test.cpp ${src} ${libcontext_src})
+target_link_libraries(scheduler_test pthread uring)
+
+add_executable(sfinae_test sfinae_test.cpp ${src} ${libcontext_src})
+target_link_libraries(sfinae_test pthread uring)

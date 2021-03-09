@@ -1,6 +1,10 @@
+#include "coroutine.h"
+#include "thread.h"
+#include "worker.h"
+
 #include <atomic>
 #include <iostream>
-#include "coroutine.h"
+
 
 namespace elaine
 {
@@ -20,11 +24,24 @@ Coroutine::Coroutine(std::function<void()> fn)
 
     //auto sp = reinterpret_cast<void*>(((ptrdiff_t)sp_ + sp_size_ - 0xf) & (~0x0f)); // memory should be 16 bytes aligned
     //sp_size_ -= ((ptrdiff_t)sp_ - (ptrdiff_t)sp + sp_size_); // adjust stack size after aligned
-    
+
     auto sp = reinterpret_cast<void*>((ptrdiff_t)sp_ + sp_size_);
     ctx_ = make_fcontext(sp, sp_size_, Run);
     status_ = Status::kRunnable;
 }
+
+Coroutine::Coroutine(std::function<void()> fn, std::string name)
+    : fn_(fn), name_(name) {
+    g_cid_ = g_cid_generator++;
+    t_cid_ = t_cid_generator++;
+
+    sp_ = malloc(sp_size_);
+
+    auto sp = reinterpret_cast<void*>((ptrdiff_t)sp_ + sp_size_);
+    ctx_ = make_fcontext(sp, sp_size_, Run);
+    status_ = Status::kRunnable;
+}
+
 
 Coroutine::~Coroutine() {
     if (sp_) {
@@ -32,7 +49,7 @@ Coroutine::~Coroutine() {
     }
 
     // TODO: use log library
-    // std::cout << "coroutine: " << g_cid_ << "destructed";
+    // std::cout << "coroutine: " << g_cid_ << " destructed" << std::endl;
 }
 
 // @description: switch control stream of current thread to a io corouine
@@ -42,6 +59,7 @@ void Coroutine::Resume() {
     assert(status_ != Status::kRunning);
     t_current_co = this;
     status_ = Status::kRunning;
+    // std::cout << name_ << " coroutine resume:" << " in " << Worker::GetCurrent()->GetName() << std::endl;
     jump_fcontext(&t_main_ctx, ctx_, 0, false);
 }
 
@@ -52,6 +70,7 @@ void Coroutine::Yield() {
     assert(status_ != Status::kBlocked);
     t_current_co = nullptr;
     status_ = Status::kBlocked;
+    // std::cout << name_ << " coroutine resume:" << " in " << Worker::GetCurrent()->GetName() << std::endl;
     jump_fcontext(&ctx_, t_main_ctx, 0, false);
 }
 
@@ -72,6 +91,10 @@ uint64_t Coroutine::GetGlobalCid() {
 
 uint64_t Coroutine::GetThreadCid() {
     return t_cid_;
+}
+
+std::string Coroutine::GetName() {
+    return name_;
 }
 
 void Coroutine::Run(intptr_t transfer) {
