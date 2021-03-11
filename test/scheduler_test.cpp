@@ -24,7 +24,7 @@ void echo_func(int fd) {
 
             auto recv_bytes = ctx.GetResult();
 
-            if (recv_bytes == 0) {
+            if (recv_bytes <= 0) {
                 ::close(fd);
                 return;
             }
@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
     socket->Listen();
 
     auto acceptor = std::make_shared<Scheduler>(1, "acceptor");
-    auto echoer = std::make_shared<Scheduler>(4, "echoer");
+    auto echoer = std::make_shared<Scheduler>(3, "echoer");
 
     auto accept_co = std::make_shared<Coroutine>(std::bind(accept_func, echoer, socket), "acceptco");
 

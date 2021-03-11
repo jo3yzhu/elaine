@@ -10,9 +10,6 @@
 #include <memory>
 #include <list>
 
-#include <sys/eventfd.h>
-#include <unistd.h>
-
 namespace elaine
 {
 
@@ -49,10 +46,8 @@ private:
     bool need_stop_ = false;
 
 private:
-    eventfd_t event_fd_;
-    uint64_t event_fd_buffer_;
     Coroutine::Ptr polling_co_;
-    ReadContext event_ctx_;
+    NopContext nop_ctx_;
     std::list<Coroutine::Ptr> ready_coroutines_;
     Mutex mutex_;
 };

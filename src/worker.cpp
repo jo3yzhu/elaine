@@ -14,16 +14,13 @@ thread_local Worker* t_worker = nullptr;
 
 Worker::Worker(std::string name)
     : name_(name),
-    event_fd_(eventfd(0, 0)),
-    polling_co_(std::make_shared<Coroutine>(std::bind(&Worker::Poll, this), "eventco")),
-    event_ctx_(polling_co_, event_fd_, &event_fd_buffer_, sizeof(event_fd_buffer_)) {
+    polling_co_(std::make_shared<Coroutine>(std::bind(&Worker::Poll, this), "pollingco")) {
     thread_ = std::make_shared<Thread>(std::bind(&Worker::ThreadFunc, this));
-    event_ctx_.RegisterTo(&multiplexer_);
+    nop_ctx_.RegisterTo(&multiplexer_);
 }
 
 Worker::~Worker() {
     Stop();
-    ::close(event_fd_);
 }
 
 void Worker::Start() {
@@ -41,8 +38,7 @@ void Worker::Join() {
 }
 
 void Worker::Wakeup() {
-    uint64_t buffer = 1;
-    ::write(event_fd_, &buffer, sizeof(buffer));
+    nop_ctx_.RegisterTo(&multiplexer_);
 }
 
 std::string Worker::GetName() {
@@ -56,13 +52,12 @@ Worker* Worker::GetCurrent() {
 void Worker::Poll() {
     while (true) {
         auto self = Coroutine::GetCurrent();
-        auto ctx = multiplexer_.Poll(); // ctx is nullptr when wakeup is triggered
+        auto ctx = multiplexer_.Poll(); // return ctx is nullptr when wakeup is triggered by nop context
         if (ctx && ctx->GetStatus() == Context::Status::kSuccess) {
             auto co = ctx->GetCorouine(); // pointer of corouine may be nullptr because of wakeup
             AddTask(co);
         }
-        
-        event_ctx_.RegisterTo(&multiplexer_);
+
         self->Yield();
     }
 }
@@ -96,7 +91,7 @@ void Worker::AddTask(Coroutine::Ptr co) {
     });
 
     ready_coroutines_.push_back(co);
-    
+
     if (multiplexer_.IsPolling()) {
         Wakeup();
     }

@@ -31,6 +31,7 @@ public:
     // supported i/o event
     enum class Event : uint32_t {
         kNone,
+        kNop,
         kAccept,
         kReadv,
         kWritev,
@@ -51,39 +52,41 @@ public:
     template<class T> \
     static typename std::enable_if<std::is_same<T, check_type>::value, return_type>::type
 
-Def(Event, std::string) ToString(T t) {
-    switch (t) {
-    case Event::kNone:
-        return "None";
-    case Event::kAccept:
-        return "Accept";
-    case Event::kReadv:
-        return "Readv";
-    case Event::kWritev:
-        return "Writev";
-    case Event::kRead:
-        return "Read";
-    case Event::kWrite:
-        return "Write";
-    default:
-        return "Unknown";
+    Def(Event, std::string) ToString(T t) {
+        switch (t) {
+        case Event::kNone:
+            return "None";
+        case Event::kNop:
+            return "Nop";
+        case Event::kAccept:
+            return "Accept";
+        case Event::kReadv:
+            return "Readv";
+        case Event::kWritev:
+            return "Writev";
+        case Event::kRead:
+            return "Read";
+        case Event::kWrite:
+            return "Write";
+        default:
+            return "Unknown";
+        }
     }
-}
- 
- Def(Status, std::string) ToString(T t) {
-    switch (t) {
-    case Status::kInitial:
-        return "Initial";
-    case Status::kPolling:
-        return "Polling";
-    case Status::kSuccess:
-        return "Success";
-    case Status::kFail:
-        return "Fail";
-    default:
-        return "Unknown";
+
+    Def(Status, std::string) ToString(T t) {
+        switch (t) {
+        case Status::kInitial:
+            return "Initial";
+        case Status::kPolling:
+            return "Polling";
+        case Status::kSuccess:
+            return "Success";
+        case Status::kFail:
+            return "Fail";
+        default:
+            return "Unknown";
+        }
     }
-}
 
 public:
     Context(Coroutine::Ptr co, int fd, Event listen_events);
@@ -123,6 +126,11 @@ protected:
     pid_t thread_id_ = Thread::GetCurrentTid();
 };
 
+class NopContext : public Context {
+public:
+    NopContext();
+    void RegisterTo(Multiplexer* multiplexer) override;
+};
 
 class AcceptContext : public Context {
 public:

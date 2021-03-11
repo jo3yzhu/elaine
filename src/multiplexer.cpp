@@ -39,12 +39,10 @@ Context* Multiplexer::Poll() {
     is_polling_ = false;
 
     auto ctx = reinterpret_cast<Context*>(cqe->user_data);
-    if(ctx->co_ == Worker::GetCurrent()->event_ctx_.co_) {
-        assert(ctx->co_->GetStatus() == Coroutine::Status::kRunning);
+    if(ctx->GetEvent() == Context::Event::kNop) {
         return nullptr;
     }
-
-
+    
     ctx->res_ = cqe->res;
     ctx->status_ = error == 0 ? Context::Status::kSuccess : Context::Status::kFail;
 

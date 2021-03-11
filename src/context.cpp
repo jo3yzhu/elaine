@@ -33,6 +33,20 @@ pid_t Context::GetThreadId() {
     return thread_id_;
 }
 
+NopContext::NopContext()
+    : Context(nullptr, -1, Context::Event::kNop) {
+}
+
+void NopContext::RegisterTo(Multiplexer* multiplexer) {
+    auto ring = multiplexer->GetRing();
+    auto sqe = ::io_uring_get_sqe(ring);
+    assert(sqe != nullptr);
+
+    ::io_uring_prep_nop(sqe);
+    ::io_uring_sqe_set_data(sqe, this);
+    auto submit_num = ::io_uring_submit(ring);
+    assert(submit_num == 1);
+}
 
 AcceptContext::AcceptContext(Coroutine::Ptr co, int sockfd, struct sockaddr* addr, socklen_t* addrlen)
     : Context(co, sockfd, Context::Event::kAccept), addr_(addr), addrlen_(addrlen) {

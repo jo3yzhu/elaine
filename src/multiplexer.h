@@ -1,14 +1,12 @@
 #pragma once
 
+#include "util/defer.h"
+#include "context.h"
+
 #include <atomic>
 
 #include <liburing.h>
 #include <liburing/io_uring.h>
-#include <sys/eventfd.h>
-#include <unistd.h>
-
-#include "util/defer.h"
-#include "context.h"
 
 namespace elaine
 {
@@ -26,7 +24,7 @@ public:
     Multiplexer(Multiplexer&&) = delete;
     ~Multiplexer();
 
-    static void SetCurrent(Multiplexer *multiplexer);
+    static void SetCurrent(Multiplexer* multiplexer);
     static Multiplexer* GetCurrent();
     struct io_uring* GetRing();
 
